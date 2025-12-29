@@ -1,31 +1,12 @@
 // Authentication & Security
 // ============================================
-// USER CREDENTIALS - CHANGE THESE AFTER FIRST LOGIN
-// ============================================
 const USERS = {
     'admin': {
-        password: 'admin123', // Change this password!
+        password: 'admin123',
         name: 'Administrator'
     }
-    // Add more users like this:
-    // 'username': {
-    //     password: 'password',
-    //     name: 'Display Name'
-    // }
 };
 
-// Simple password hashing function (for basic security)
-function hashPassword(password) {
-    let hash = 0;
-    for (let i = 0; i < password.length; i++) {
-        const char = password.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32bit integer
-    }
-    return hash.toString(36);
-}
-
-// Check if user is authenticated
 function isAuthenticated() {
     const session = localStorage.getItem('helena_session');
     if (!session) return false;
@@ -33,7 +14,6 @@ function isAuthenticated() {
     try {
         const sessionData = JSON.parse(session);
         const now = Date.now();
-        // Session expires after 24 hours
         if (now - sessionData.timestamp > 24 * 60 * 60 * 1000) {
             localStorage.removeItem('helena_session');
             return false;
@@ -44,7 +24,6 @@ function isAuthenticated() {
     }
 }
 
-// Get current user
 function getCurrentUser() {
     const session = localStorage.getItem('helena_session');
     if (!session) return null;
@@ -57,19 +36,16 @@ function getCurrentUser() {
     }
 }
 
-// Login function
 function login(username, password) {
     const user = USERS[username];
     if (!user) {
         return { success: false, message: 'Invalid username or password' };
     }
     
-    // Simple password check (in production, use proper hashing)
     if (user.password !== password) {
         return { success: false, message: 'Invalid username or password' };
     }
     
-    // Create session
     const sessionData = {
         username: username,
         name: user.name,
@@ -80,13 +56,11 @@ function login(username, password) {
     return { success: true, user: user.name };
 }
 
-// Logout function
 function logout() {
     localStorage.removeItem('helena_session');
     showLoginPage();
 }
 
-// Show login page
 function showLoginPage() {
     document.getElementById('loginPage').style.display = 'flex';
     document.getElementById('appContainer').classList.remove('active');
@@ -94,7 +68,6 @@ function showLoginPage() {
     document.getElementById('loginError').style.display = 'none';
 }
 
-// Show app
 function showApp() {
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('appContainer').classList.add('active');
@@ -104,17 +77,19 @@ function showApp() {
     }
 }
 
-// Production Planning Tool
+// Production Planning Tool - Hours Based
 // ============================================
+let products = [];
 let productionLines = [];
-let productionData = [];
+let productionSchedule = [];
+let calendarHours = {}; // { '2024-01-15': 8, ... }
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
-    // Check authentication first
     if (isAuthenticated()) {
         showApp();
         loadFromStorage();
+        initializeCalendar();
         updateUI();
         setupEventListeners();
         setDefaultDate();
@@ -124,7 +99,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Setup login form listener
 function setupLoginListener() {
     document.getElementById('loginForm').addEventListener('submit', function(e) {
         e.preventDefault();
@@ -136,6 +110,7 @@ function setupLoginListener() {
         if (result.success) {
             showApp();
             loadFromStorage();
+            initializeCalendar();
             updateUI();
             setupEventListeners();
             setDefaultDate();
@@ -147,6 +122,122 @@ function setupLoginListener() {
     });
 }
 
+function initializeCalendar() {
+    const weekInput = document.getElementById('weekSelector');
+    if (weekInput) {
+        const today = new Date();
+        const year = today.getFullYear();
+        const week = getWeekNumber(today);
+        weekInput.value = `${year}-W${week.toString().padStart(2, '0')}`;
+        renderCalendar();
+    }
+}
+
+function getWeekNumber(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+}
+
+function renderCalendar() {
+    const weekInput = document.getElementById('weekSelector');
+    if (!weekInput || !weekInput.value) return;
+    
+    const [year, week] = weekInput.value.split('-W').map(Number);
+    const dates = getWeekDates(year, week);
+    const container = document.getElementById('calendarContainer');
+    
+    if (!container) return;
+    
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    
+    let html = '<div class="calendar-grid">';
+    dates.forEach((date, index) => {
+        const dateStr = date.toISOString().split('T')[0];
+        const dayName = dayNames[date.getDay()];
+        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+        const hours = calendarHours[dateStr] || 8; // Default 8 hours
+        
+        html += `
+            <div class="calendar-day ${isWeekend ? 'weekend' : ''}">
+                <div class="calendar-header">${dayName}</div>
+                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">${dateStr.split('-')[2]}</div>
+                <input type="number" 
+                       id="hours_${dateStr}" 
+                       min="0" 
+                       max="24" 
+                       step="0.5" 
+                       value="${hours}" 
+                       placeholder="Hours">
+            </div>
+        `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function getWeekDates(year, week) {
+    const simple = new Date(year, 0, 1 + (week - 1) * 7);
+    const dow = simple.getDay();
+    const ISOweekStart = simple;
+    if (dow <= 4) {
+        ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
+    } else {
+        ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
+    }
+    
+    const dates = [];
+    for (let i = 0; i < 7; i++) {
+        const date = new Date(ISOweekStart);
+        date.setDate(ISOweekStart.getDate() + i);
+        dates.push(date);
+    }
+    return dates;
+}
+
+function saveCalendarHours() {
+    const weekInput = document.getElementById('weekSelector');
+    if (!weekInput || !weekInput.value) return;
+    
+    const [year, week] = weekInput.value.split('-W').map(Number);
+    const dates = getWeekDates(year, week);
+    
+    dates.forEach(date => {
+        const dateStr = date.toISOString().split('T')[0];
+        const input = document.getElementById(`hours_${dateStr}`);
+        if (input) {
+            const hours = parseFloat(input.value) || 0;
+            calendarHours[dateStr] = hours;
+        }
+    });
+    
+    saveToStorage();
+    showSuccess('calendarSuccess');
+    updateUI();
+}
+
+function switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    // Update tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    if (tabName === 'setup') {
+        document.getElementById('setupTab').classList.add('active');
+    } else if (tabName === 'calendar') {
+        document.getElementById('calendarTab').classList.add('active');
+        renderCalendar();
+    }
+}
+
 function setDefaultDate() {
     const today = new Date().toISOString().split('T')[0];
     const dateInput = document.getElementById('productionDate');
@@ -156,92 +247,110 @@ function setDefaultDate() {
 }
 
 function setupEventListeners() {
-    const addLineForm = document.getElementById('addLineForm');
-    const addDataForm = document.getElementById('addDataForm');
+    const addProductForm = document.getElementById('addProductForm');
+    const addProductionForm = document.getElementById('addProductionForm');
+    const weekSelector = document.getElementById('weekSelector');
     
-    if (addLineForm) {
-        addLineForm.addEventListener('submit', function(e) {
+    if (addProductForm) {
+        addProductForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            addProductionLine();
+            addProduct();
         });
     }
 
-    if (addDataForm) {
-        addDataForm.addEventListener('submit', function(e) {
+    if (addProductionForm) {
+        addProductionForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            addProductionData();
+            scheduleProduction();
+        });
+    }
+    
+    if (weekSelector) {
+        weekSelector.addEventListener('change', function() {
+            renderCalendar();
         });
     }
 }
 
-function addProductionLine() {
-    const name = document.getElementById('lineName').value;
-    const maxCapacity = parseFloat(document.getElementById('maxCapacity').value);
-    const unit = document.getElementById('unit').value;
+function addProduct() {
+    const name = document.getElementById('productName').value;
+    const hoursPerUnit = parseFloat(document.getElementById('hoursPerUnit').value);
+    const unitType = document.getElementById('unitType').value;
 
-    if (!name) return;
+    if (!name || hoursPerUnit <= 0) return;
 
-    const line = {
-        id: productionLines.length,
+    const product = {
+        id: products.length,
         name: name,
-        maxCapacity: maxCapacity,
-        unit: unit
+        hoursPerUnit: hoursPerUnit,
+        unitType: unitType
     };
 
-    productionLines.push(line);
+    products.push(product);
     saveToStorage();
     updateUI();
     
-    document.getElementById('addLineForm').reset();
-    document.getElementById('maxCapacity').value = 100;
-    document.getElementById('unit').value = 'gallons';
-    showSuccess('lineSuccess');
+    document.getElementById('addProductForm').reset();
+    document.getElementById('hoursPerUnit').value = 1.0;
+    showSuccess('productSuccess');
 }
 
-function addProductionData() {
+function scheduleProduction() {
+    const productId = parseInt(document.getElementById('selectedProduct').value);
     const lineId = parseInt(document.getElementById('selectedLine').value);
     const date = document.getElementById('productionDate').value;
-    const actualProduction = parseFloat(document.getElementById('actualProduction').value);
+    const quantity = parseFloat(document.getElementById('productionQuantity').value);
 
-    if (lineId === null || !date) return;
+    if (productId === null || lineId === null || !date || quantity <= 0) return;
 
-    const data = {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+
+    const hoursRequired = quantity * product.hoursPerUnit;
+    const hoursAvailable = calendarHours[date] || 8;
+
+    const scheduleItem = {
+        id: productionSchedule.length,
+        product_id: productId,
         line_id: lineId,
         date: date,
-        actual_production: actualProduction,
+        quantity: quantity,
+        hoursRequired: hoursRequired,
+        hoursAvailable: hoursAvailable,
         timestamp: new Date().toISOString()
     };
 
-    productionData.push(data);
+    productionSchedule.push(scheduleItem);
     saveToStorage();
     updateUI();
     
-    document.getElementById('addDataForm').reset();
+    document.getElementById('addProductionForm').reset();
     setDefaultDate();
-    showSuccess('dataSuccess');
+    showSuccess('productionSuccess');
 }
 
-function calculateUtilization(lineId, actualProduction) {
-    const line = productionLines.find(l => l.id === lineId);
-    if (line && line.maxCapacity > 0) {
-        return (actualProduction / line.maxCapacity) * 100;
-    }
-    return 0;
+function calculateUtilization(hoursRequired, hoursAvailable) {
+    if (hoursAvailable <= 0) return 0;
+    return (hoursRequired / hoursAvailable) * 100;
 }
 
-function getCapacityData() {
+function getScheduleData() {
     const data = [];
-    productionData.forEach(prodData => {
-        const line = productionLines.find(l => l.id === prodData.line_id);
-        if (line) {
-            const utilization = calculateUtilization(prodData.line_id, prodData.actual_production);
+    productionSchedule.forEach(item => {
+        const product = products.find(p => p.id === item.product_id);
+        const line = productionLines.find(l => l.id === item.line_id);
+        
+        if (product && line) {
+            const utilization = calculateUtilization(item.hoursRequired, item.hoursAvailable);
             data.push({
+                Date: item.date,
+                Product: product.name,
                 Line: line.name,
-                Date: prodData.date,
-                ActualProduction: prodData.actual_production,
-                MaxCapacity: line.maxCapacity,
+                Quantity: item.quantity,
+                HoursRequired: item.hoursRequired,
+                HoursAvailable: item.hoursAvailable,
                 Utilization: utilization,
-                Unit: line.unit
+                Unit: product.unitType
             });
         }
     });
@@ -249,15 +358,16 @@ function getCapacityData() {
 }
 
 function updateUI() {
-    updateLinesDropdown();
-    updateLinesList();
+    updateProductDropdown();
+    updateLineDropdown();
+    updateProductsList();
     
     const emptyState = document.getElementById('emptyState');
     const dashboardContent = document.getElementById('dashboardContent');
     
     if (!emptyState || !dashboardContent) return;
     
-    if (productionLines.length === 0) {
+    if (products.length === 0 || productionSchedule.length === 0) {
         emptyState.style.display = 'block';
         dashboardContent.style.display = 'none';
         return;
@@ -268,10 +378,23 @@ function updateUI() {
 
     updateMetrics();
     updateCharts();
-    updateDataTable();
+    updateScheduleTable();
 }
 
-function updateLinesDropdown() {
+function updateProductDropdown() {
+    const select = document.getElementById('selectedProduct');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">Select a product...</option>';
+    products.forEach(product => {
+        const option = document.createElement('option');
+        option.value = product.id;
+        option.textContent = `${product.name} (${product.hoursPerUnit} hrs/${product.unitType})`;
+        select.appendChild(option);
+    });
+}
+
+function updateLineDropdown() {
     const select = document.getElementById('selectedLine');
     if (!select) return;
     
@@ -279,48 +402,60 @@ function updateLinesDropdown() {
     productionLines.forEach(line => {
         const option = document.createElement('option');
         option.value = line.id;
-        option.textContent = `${line.name} (${line.maxCapacity} ${line.unit})`;
+        option.textContent = line.name;
         select.appendChild(option);
     });
 }
 
-function updateLinesList() {
-    const container = document.getElementById('linesList');
+function updateProductsList() {
+    const container = document.getElementById('productsList');
     if (!container) return;
     
     container.innerHTML = '';
     
-    if (productionLines.length === 0) {
-        container.innerHTML = '<p style="color: #666; font-size: 14px;">No lines added</p>';
+    if (products.length === 0) {
+        container.innerHTML = '<p style="color: #666; font-size: 14px;">No products added</p>';
         return;
     }
 
-    productionLines.forEach(line => {
+    products.forEach(product => {
         const div = document.createElement('div');
-        div.className = 'line-item';
+        div.className = 'product-item';
         div.innerHTML = `
             <div>
-                <strong>${line.name}</strong><br>
-                <small>${line.maxCapacity} ${line.unit}</small>
+                <strong>${product.name}</strong><br>
+                <small>${product.hoursPerUnit} hrs/${product.unitType}</small>
             </div>
-            <button onclick="removeLine(${line.id})" class="secondary">Remove</button>
+            <button onclick="removeProduct(${product.id})" class="secondary">Remove</button>
         `;
         container.appendChild(div);
     });
 }
 
-function removeLine(id) {
-    productionLines = productionLines.filter(l => l.id !== id);
-    productionData = productionData.filter(d => d.line_id !== id);
-    productionLines.forEach((line, index) => {
-        line.id = index;
+function removeProduct(id) {
+    products = products.filter(p => p.id !== id);
+    productionSchedule = productionSchedule.filter(s => s.product_id !== id);
+    products.forEach((product, index) => {
+        product.id = index;
     });
     saveToStorage();
     updateUI();
 }
 
+// Initialize default production lines
+function initializeDefaultLines() {
+    if (productionLines.length === 0) {
+        productionLines = [
+            { id: 0, name: 'Line 1' },
+            { id: 1, name: 'Line 2' },
+            { id: 2, name: 'Line 3' }
+        ];
+        saveToStorage();
+    }
+}
+
 function updateMetrics() {
-    const data = getCapacityData();
+    const data = getScheduleData();
     const container = document.getElementById('metrics');
     if (!container) return;
     
@@ -329,35 +464,40 @@ function updateMetrics() {
         return;
     }
 
+    const totalHoursRequired = data.reduce((sum, d) => sum + d.HoursRequired, 0);
+    const totalHoursAvailable = data.reduce((sum, d) => sum + d.HoursAvailable, 0);
     const avgUtilization = data.reduce((sum, d) => sum + d.Utilization, 0) / data.length;
     const maxUtilization = Math.max(...data.map(d => d.Utilization));
-    const totalLines = new Set(data.map(d => d.Line)).size;
 
     container.innerHTML = `
         <div class="metric">
+            <div class="metric-value">${totalHoursRequired.toFixed(1)}</div>
+            <div class="metric-label">Total Hours Required</div>
+        </div>
+        <div class="metric">
+            <div class="metric-value">${totalHoursAvailable.toFixed(1)}</div>
+            <div class="metric-label">Total Hours Available</div>
+        </div>
+        <div class="metric">
             <div class="metric-value">${avgUtilization.toFixed(1)}%</div>
-            <div class="metric-label">Average Utilization</div>
+            <div class="metric-label">Avg Utilization</div>
         </div>
         <div class="metric">
             <div class="metric-value">${maxUtilization.toFixed(1)}%</div>
             <div class="metric-label">Peak Utilization</div>
         </div>
-        <div class="metric">
-            <div class="metric-value">${totalLines}</div>
-            <div class="metric-label">Active Lines</div>
-        </div>
     `;
 }
 
 function updateCharts() {
-    const data = getCapacityData();
+    const data = getScheduleData();
     const utilizationChart = document.getElementById('utilizationChart');
     const comparisonChart = document.getElementById('comparisonChart');
     
     if (!utilizationChart || !comparisonChart) return;
     
     if (data.length === 0) {
-        utilizationChart.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">Add production data to see charts</p>';
+        utilizationChart.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">Schedule production to see charts</p>';
         comparisonChart.innerHTML = '';
         return;
     }
@@ -367,28 +507,37 @@ function updateCharts() {
 }
 
 function createUtilizationChart(data) {
-    const traces = {};
+    const dateGroups = {};
     
     data.forEach(d => {
-        if (!traces[d.Line]) {
-            traces[d.Line] = {
-                x: [],
-                y: [],
-                type: 'scatter',
-                mode: 'lines+markers',
-                name: d.Line,
-                line: { width: 3 }
+        if (!dateGroups[d.Date]) {
+            dateGroups[d.Date] = {
+                hoursRequired: 0,
+                hoursAvailable: d.HoursAvailable
             };
         }
-        traces[d.Line].x.push(d.Date);
-        traces[d.Line].y.push(d.Utilization);
+        dateGroups[d.Date].hoursRequired += d.HoursRequired;
     });
 
-    const plotData = Object.values(traces);
+    const dates = Object.keys(dateGroups).sort();
+    const utilizations = dates.map(date => {
+        const group = dateGroups[date];
+        return calculateUtilization(group.hoursRequired, group.hoursAvailable);
+    });
+
+    const trace = {
+        x: dates,
+        y: utilizations,
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: 'Utilization',
+        line: { width: 3, color: '#667eea' },
+        marker: { size: 8 }
+    };
 
     const layout = {
         title: {
-            text: 'Capacity Utilization Over Time',
+            text: 'Daily Capacity Utilization Over Time',
             font: { size: 20, color: '#667eea' }
         },
         xaxis: { title: 'Date' },
@@ -418,35 +567,31 @@ function createUtilizationChart(data) {
                 yref: 'y',
                 line: { color: 'orange', width: 2, dash: 'dot' }
             }
-        ],
-        annotations: [
-            {
-                x: 1,
-                y: 100,
-                xref: 'paper',
-                yref: 'y',
-                text: '100% Capacity',
-                showarrow: false,
-                xanchor: 'right',
-                bgcolor: 'rgba(255,0,0,0.1)',
-                bordercolor: 'red'
-            }
         ]
     };
 
-    Plotly.newPlot('utilizationChart', plotData, layout, {responsive: true});
+    Plotly.newPlot('utilizationChart', [trace], layout, {responsive: true});
 }
 
 function createComparisonChart(data) {
-    const latest = {};
+    const lineGroups = {};
+    
     data.forEach(d => {
-        if (!latest[d.Line] || new Date(d.Date) > new Date(latest[d.Line].Date)) {
-            latest[d.Line] = d;
+        if (!lineGroups[d.Line]) {
+            lineGroups[d.Line] = {
+                hoursRequired: 0,
+                hoursAvailable: 0
+            };
         }
+        lineGroups[d.Line].hoursRequired += d.HoursRequired;
+        lineGroups[d.Line].hoursAvailable = Math.max(lineGroups[d.Line].hoursAvailable, d.HoursAvailable);
     });
 
-    const lines = Object.keys(latest);
-    const utilizations = lines.map(l => latest[l].Utilization);
+    const lines = Object.keys(lineGroups);
+    const utilizations = lines.map(line => {
+        const group = lineGroups[line];
+        return calculateUtilization(group.hoursRequired, group.hoursAvailable);
+    });
 
     const trace = {
         x: lines,
@@ -465,7 +610,7 @@ function createComparisonChart(data) {
 
     const layout = {
         title: {
-            text: 'Current Utilization by Line',
+            text: 'Utilization by Production Line',
             font: { size: 20, color: '#667eea' }
         },
         xaxis: { title: 'Production Line' },
@@ -487,20 +632,22 @@ function createComparisonChart(data) {
     Plotly.newPlot('comparisonChart', [trace], layout, {responsive: true});
 }
 
-function updateDataTable() {
-    const data = getCapacityData();
-    const tbody = document.getElementById('dataTableBody');
+function updateScheduleTable() {
+    const data = getScheduleData();
+    const tbody = document.getElementById('scheduleTableBody');
     if (!tbody) return;
     
     tbody.innerHTML = '';
     
     data.forEach(d => {
         const row = tbody.insertRow();
-        row.insertCell(0).textContent = d.Line;
-        row.insertCell(1).textContent = d.Date;
-        row.insertCell(2).textContent = d.ActualProduction.toFixed(1) + ' ' + d.Unit;
-        row.insertCell(3).textContent = d.MaxCapacity.toFixed(1) + ' ' + d.Unit;
-        const utilCell = row.insertCell(4);
+        row.insertCell(0).textContent = d.Date;
+        row.insertCell(1).textContent = d.Product;
+        row.insertCell(2).textContent = d.Line;
+        row.insertCell(3).textContent = d.Quantity.toFixed(1) + ' ' + d.Unit;
+        row.insertCell(4).textContent = d.HoursRequired.toFixed(1) + ' hrs';
+        row.insertCell(5).textContent = d.HoursAvailable.toFixed(1) + ' hrs';
+        const utilCell = row.insertCell(6);
         utilCell.textContent = d.Utilization.toFixed(1) + '%';
         utilCell.style.fontWeight = '600';
         utilCell.style.color = d.Utilization >= 100 ? '#dc3545' : d.Utilization >= 80 ? '#ffc107' : '#28a745';
@@ -508,9 +655,11 @@ function updateDataTable() {
 }
 
 function clearAllData() {
-    if (confirm('Clear all production lines and data? This cannot be undone.')) {
-        productionLines = [];
-        productionData = [];
+    if (confirm('Clear all products, schedule, and calendar data? This cannot be undone.')) {
+        products = [];
+        productionSchedule = [];
+        calendarHours = {};
+        initializeDefaultLines();
         saveToStorage();
         updateUI();
     }
@@ -526,26 +675,40 @@ function showSuccess(id) {
     }
 }
 
-// Storage functions (scoped to authenticated user)
+// Storage functions
 function saveToStorage() {
     const username = getCurrentUser();
     if (!username) return;
     
-    localStorage.setItem(`helena_production_lines_${username}`, JSON.stringify(productionLines));
-    localStorage.setItem(`helena_production_data_${username}`, JSON.stringify(productionData));
+    initializeDefaultLines();
+    
+    localStorage.setItem(`helena_products_${username}`, JSON.stringify(products));
+    localStorage.setItem(`helena_lines_${username}`, JSON.stringify(productionLines));
+    localStorage.setItem(`helena_schedule_${username}`, JSON.stringify(productionSchedule));
+    localStorage.setItem(`helena_calendar_${username}`, JSON.stringify(calendarHours));
 }
 
 function loadFromStorage() {
     const username = getCurrentUser();
     if (!username) return;
     
-    const lines = localStorage.getItem(`helena_production_lines_${username}`);
-    const data = localStorage.getItem(`helena_production_data_${username}`);
+    const productsData = localStorage.getItem(`helena_products_${username}`);
+    const linesData = localStorage.getItem(`helena_lines_${username}`);
+    const scheduleData = localStorage.getItem(`helena_schedule_${username}`);
+    const calendarData = localStorage.getItem(`helena_calendar_${username}`);
     
-    if (lines) {
-        productionLines = JSON.parse(lines);
+    if (productsData) {
+        products = JSON.parse(productsData);
     }
-    if (data) {
-        productionData = JSON.parse(data);
+    if (linesData) {
+        productionLines = JSON.parse(linesData);
     }
+    if (scheduleData) {
+        productionSchedule = JSON.parse(scheduleData);
+    }
+    if (calendarData) {
+        calendarHours = JSON.parse(calendarData);
+    }
+    
+    initializeDefaultLines();
 }

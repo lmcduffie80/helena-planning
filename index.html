@@ -21,7 +21,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
         }
 
@@ -112,7 +112,7 @@
             font-size: 14px;
         }
 
-        /* Main App Styles (hidden until login) */
+        /* Main App Styles */
         .app-container {
             display: none;
         }
@@ -167,7 +167,7 @@
 
         .main-grid {
             display: grid;
-            grid-template-columns: 350px 1fr;
+            grid-template-columns: 400px 1fr;
             gap: 20px;
         }
 
@@ -177,6 +177,8 @@
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             height: fit-content;
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
         }
 
         .dashboard {
@@ -258,7 +260,7 @@
 
         .metrics {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 20px;
             margin-bottom: 30px;
         }
@@ -300,7 +302,7 @@
         }
 
         th, td {
-            padding: 15px;
+            padding: 12px;
             text-align: left;
             border-bottom: 1px solid #e0e0e0;
         }
@@ -336,11 +338,70 @@
             font-weight: 500;
         }
 
-        .lines-list {
-            margin-top: 15px;
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            margin-top: 20px;
         }
 
-        .line-item {
+        .calendar-day {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #e0e0e0;
+        }
+
+        .calendar-day.weekend {
+            background: #fff3cd;
+        }
+
+        .calendar-day input {
+            width: 100%;
+            margin-top: 8px;
+            padding: 8px;
+            font-size: 14px;
+        }
+
+        .calendar-header {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .tab {
+            padding: 12px 20px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .product-item {
             background: #f8f9fa;
             padding: 15px;
             border-radius: 8px;
@@ -351,11 +412,11 @@
             border-left: 4px solid #667eea;
         }
 
-        .line-item strong {
+        .product-item strong {
             color: #667eea;
         }
 
-        .line-item button {
+        .product-item button {
             width: auto;
             padding: 8px 15px;
             font-size: 12px;
@@ -390,16 +451,15 @@
                 <p>Default credentials:</p>
                 <p><strong>Username:</strong> admin</p>
                 <p><strong>Password:</strong> admin123</p>
-                <p style="margin-top: 10px; color: #999;">Change these in app.js after first login</p>
             </div>
         </div>
     </div>
 
-    <!-- Main Application (hidden until login) -->
+    <!-- Main Application -->
     <div id="appContainer" class="app-container">
         <div class="container">
             <header>
-                <h1>📊 Production Planning Tool</h1>
+                <h1>⏱️ Production Planning Tool</h1>
                 <div class="header-right">
                     <span class="user-info">Logged in as: <strong id="currentUser">admin</strong></span>
                     <button class="logout-btn" onclick="logout()">Logout</button>
@@ -408,55 +468,85 @@
 
             <div class="main-grid">
                 <div class="sidebar">
-                    <h2>⚙️ Setup</h2>
-                    
-                    <h3>Add Production Line</h3>
-                    <form id="addLineForm">
-                        <div class="form-group">
-                            <label>Line Name</label>
-                            <input type="text" id="lineName" placeholder="e.g., Line A" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Max Capacity</label>
-                            <input type="number" id="maxCapacity" min="0" step="0.1" value="100" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Unit</label>
-                            <select id="unit">
-                                <option value="gallons">Gallons</option>
-                                <option value="lbs">LBs (Pounds)</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="primary">Add Line</button>
-                        <div class="success" id="lineSuccess">✓ Line added!</div>
-                    </form>
+                    <div class="tabs">
+                        <button class="tab active" onclick="switchTab('setup')">Setup</button>
+                        <button class="tab" onclick="switchTab('calendar')">Calendar</button>
+                    </div>
 
-                    <div class="divider"></div>
+                    <!-- Setup Tab -->
+                    <div id="setupTab" class="tab-content active">
+                        <h2>⚙️ Setup</h2>
+                        
+                        <h3>Add Product</h3>
+                        <form id="addProductForm">
+                            <div class="form-group">
+                                <label>Product Name</label>
+                                <input type="text" id="productName" placeholder="e.g., Product A" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Hours per Unit</label>
+                                <input type="number" id="hoursPerUnit" min="0" step="0.1" value="1.0" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Unit Type</label>
+                                <select id="unitType">
+                                    <option value="gallons">Gallons</option>
+                                    <option value="lbs">LBs (Pounds)</option>
+                                    <option value="units">Units</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="primary">Add Product</button>
+                            <div class="success" id="productSuccess">✓ Product added!</div>
+                        </form>
 
-                    <h3>Add Production Data</h3>
-                    <form id="addDataForm">
-                        <div class="form-group">
-                            <label>Production Line</label>
-                            <select id="selectedLine" required>
-                                <option value="">Select a line...</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Date</label>
-                            <input type="date" id="productionDate" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Actual Production</label>
-                            <input type="number" id="actualProduction" min="0" step="0.1" value="0" required>
-                        </div>
-                        <button type="submit" class="primary">Add Data</button>
-                        <div class="success" id="dataSuccess">✓ Data added!</div>
-                    </form>
+                        <div class="divider"></div>
 
-                    <div class="divider"></div>
+                        <h3>Schedule Production</h3>
+                        <form id="addProductionForm">
+                            <div class="form-group">
+                                <label>Product</label>
+                                <select id="selectedProduct" required>
+                                    <option value="">Select a product...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Production Line</label>
+                                <select id="selectedLine" required>
+                                    <option value="">Select a line...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Date</label>
+                                <input type="date" id="productionDate" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Quantity to Produce</label>
+                                <input type="number" id="productionQuantity" min="0" step="0.1" value="0" required>
+                            </div>
+                            <button type="submit" class="primary">Schedule Production</button>
+                            <div class="success" id="productionSuccess">✓ Production scheduled!</div>
+                        </form>
 
-                    <h3>Production Lines</h3>
-                    <div class="lines-list" id="linesList"></div>
+                        <div class="divider"></div>
+
+                        <h3>Products</h3>
+                        <div id="productsList"></div>
+                    </div>
+
+                    <!-- Calendar Tab -->
+                    <div id="calendarTab" class="tab-content">
+                        <h2>📅 Production Calendar</h2>
+                        <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                            Set available hours for each day. Weekends are highlighted.
+                        </p>
+                        <div class="form-group">
+                            <label>Select Week</label>
+                            <input type="week" id="weekSelector" required>
+                        </div>
+                        <div id="calendarContainer"></div>
+                        <button class="primary" onclick="saveCalendarHours()" style="margin-top: 15px;">Save Hours</button>
+                        <div class="success" id="calendarSuccess">✓ Hours saved!</div>
+                    </div>
 
                     <div class="divider"></div>
 
@@ -465,11 +555,11 @@
 
                 <div class="dashboard">
                     <div id="emptyState" class="info">
-                        👈 Start by adding a production line in the sidebar
+                        👈 Start by adding products and setting up your production calendar
                     </div>
 
                     <div id="dashboardContent" style="display: none;">
-                        <h2>📈 Capacity Overview</h2>
+                        <h2>📈 Production Overview</h2>
                         
                         <div class="metrics" id="metrics"></div>
 
@@ -481,18 +571,20 @@
                             <div id="comparisonChart"></div>
                         </div>
 
-                        <h2>📋 Production Data</h2>
-                        <table id="dataTable">
+                        <h2>📋 Production Schedule</h2>
+                        <table id="scheduleTable">
                             <thead>
                                 <tr>
-                                    <th>Line</th>
                                     <th>Date</th>
-                                    <th>Actual</th>
-                                    <th>Capacity</th>
+                                    <th>Product</th>
+                                    <th>Line</th>
+                                    <th>Quantity</th>
+                                    <th>Hours Required</th>
+                                    <th>Hours Available</th>
                                     <th>Utilization</th>
                                 </tr>
                             </thead>
-                            <tbody id="dataTableBody"></tbody>
+                            <tbody id="scheduleTableBody"></tbody>
                         </table>
                     </div>
                 </div>
