@@ -676,6 +676,171 @@ function showSuccess(id) {
 }
 
 // Storage functions
+// Dashboard Section Management
+function showSection(sectionName) {
+    // Hide all sections
+    document.querySelectorAll('.dashboard-section').forEach(section => {
+        section.classList.remove('active');
+    });
+    
+    // Remove active class from all buttons
+    document.querySelectorAll('.dashboard-button').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Show selected section
+    const section = document.getElementById(sectionName + 'Section');
+    if (section) {
+        section.classList.add('active');
+        event.target.classList.add('active');
+        
+        // Initialize section-specific data
+        if (sectionName === 'planningStatus') {
+            refreshPlanningStatus();
+        } else if (sectionName === 'unscheduledDemand') {
+            loadUnscheduledDemand();
+        } else if (sectionName === 'itemMaster') {
+            updateProductDropdowns();
+        } else if (sectionName === 'scheduling') {
+            updateProductDropdowns();
+        }
+    }
+}
+
+// Planning Status Functions
+function refreshPlanningStatus() {
+    // Calculate and update planning status metrics
+    const cancellations = productionSchedule.filter(s => s.status === 'cancelled').length;
+    const overCapacity = productionSchedule.filter(s => {
+        return s.hoursRequired > s.hoursAvailable;
+    }).length;
+    
+    document.getElementById('cancellationsPending').value = cancellations;
+    document.getElementById('overCapacity').value = overCapacity;
+    // Add more calculations as needed
+}
+
+function modifySchedules() {
+    showSection('scheduling');
+}
+
+// Unscheduled Demand Functions
+function loadUnscheduledDemand() {
+    // Load unscheduled demand data
+    const tbody = document.getElementById('unscheduledTableBody');
+    if (!tbody) return;
+    
+    // This would typically load from your data source
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px; color: #999;">No unscheduled demand</td></tr>';
+}
+
+function pullInNewDemand() {
+    alert('Pulling in new demand from forecasts...');
+    // Implement forecast import logic
+    loadUnscheduledDemand();
+}
+
+function scheduleDemand() {
+    alert('Scheduling selected demand...');
+    // Implement scheduling logic
+}
+
+function unscheduleDemand() {
+    alert('Unscheduling selected items...');
+    // Implement unscheduling logic
+}
+
+// Item Master Functions
+function addActiveIngredient() {
+    const tbody = document.getElementById('activeIngredientsBody');
+    if (!tbody) return;
+    
+    const row = tbody.insertRow();
+    row.innerHTML = `
+        <td><input type="text" class="input-field" placeholder="Enter AI Name"></td>
+        <td><button type="button" class="secondary" onclick="removeActiveIngredient(this)" style="width: auto; padding: 5px 10px;">Remove</button></td>
+    `;
+}
+
+function removeActiveIngredient(button) {
+    button.closest('tr').remove();
+}
+
+function addUnitCapacity() {
+    const tbody = document.getElementById('unitCapacitiesBody');
+    if (!tbody) return;
+    
+    const row = tbody.insertRow();
+    row.innerHTML = `
+        <td>
+            <select class="input-field" style="padding: 8px;">
+                <option>Ocilla</option>
+                <option>Plant 2</option>
+            </select>
+        </td>
+        <td><input type="text" class="input-field" placeholder="Unit" style="padding: 8px;"></td>
+        <td><input type="number" class="input-field" placeholder="0" min="0" step="0.1" style="padding: 8px;"></td>
+        <td><input type="number" class="input-field" placeholder="Batch Size" min="0" style="padding: 8px;"></td>
+        <td><input type="text" class="input-field" placeholder="UOM" style="padding: 8px;"></td>
+        <td><input type="number" class="input-field" min="0" step="0.1" style="padding: 8px;"></td>
+        <td><button type="button" class="secondary" onclick="removeUnitCapacity(this)" style="width: auto; padding: 5px 10px;">Remove</button></td>
+    `;
+}
+
+function removeUnitCapacity(button) {
+    button.closest('tr').remove();
+}
+
+function clearItemForm() {
+    document.getElementById('itemMasterForm').reset();
+    document.getElementById('activeIngredientsBody').innerHTML = '';
+    document.getElementById('unitCapacitiesBody').innerHTML = '';
+}
+
+// Bottom Icon Functions
+function downloadData() {
+    alert('Downloading data...');
+    // Implement download functionality
+}
+
+function uploadData() {
+    alert('Uploading data...');
+    // Implement upload functionality
+}
+
+function showSettings() {
+    alert('Settings panel coming soon...');
+    // Implement settings
+}
+
+function viewChangeLog() {
+    const from = document.getElementById('changeFrom').value;
+    const to = document.getElementById('changeTo').value;
+    if (!from || !to) {
+        alert('Please enter both "Change From" and "Change To" values');
+        return;
+    }
+    alert(`Viewing change log from "${from}" to "${to}"`);
+    // Implement change log view
+}
+
+function updateProductDropdowns() {
+    // Update product dropdowns in various sections
+    const selects = ['scheduleProduct', 'itemProduct'];
+    selects.forEach(selectId => {
+        const select = document.getElementById(selectId);
+        if (select) {
+            select.innerHTML = '<option value="">Select a product...</option>';
+            products.forEach(product => {
+                const option = document.createElement('option');
+                option.value = product.id;
+                option.textContent = `${product.name} (${product.hoursPerUnit} hrs/${product.unitType})`;
+                select.appendChild(option);
+            });
+        }
+    });
+}
+
 function saveToStorage() {
     const username = getCurrentUser();
     if (!username) return;
