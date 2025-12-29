@@ -39,6 +39,11 @@ ENV/
 # OS
 .DS_Store
 Thumbs.db
+Icon
+Icon?
+._*
+.Spotlight-V100
+.Trashes
 
 # Data files (optional - uncomment if you don't want to track data)
 # *.csv
