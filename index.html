@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Production Planning Tool</title>
+    <title>Production Planning Tool - Login</title>
     <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
     <style>
         * {
@@ -25,24 +25,144 @@
             margin: 0 auto;
         }
 
+        /* Login Page Styles */
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: calc(100vh - 40px);
+        }
+
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-box h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2em;
+            text-align: center;
+        }
+
+        .login-box .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        .login-form .form-group {
+            margin-bottom: 20px;
+        }
+
+        .login-form label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .login-form input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .login-form input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .login-form button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: all 0.3s;
+        }
+
+        .login-form button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        /* Main App Styles (hidden until login) */
+        .app-container {
+            display: none;
+        }
+
+        .app-container.active {
+            display: block;
+        }
+
         header {
             background: white;
             padding: 30px;
             border-radius: 12px;
             margin-bottom: 20px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        h1 {
+        header h1 {
             color: #667eea;
-            margin-bottom: 10px;
+            margin: 0;
             font-size: 2.5em;
         }
 
-        .subtitle {
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-info {
             color: #666;
-            font-size: 1.1em;
+            font-size: 14px;
+        }
+
+        .logout-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #c82333;
+            transform: translateY(-2px);
         }
 
         .main-grid {
@@ -106,7 +226,7 @@
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
-        button {
+        button.primary {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
@@ -116,13 +236,14 @@
             font-size: 16px;
         }
 
-        button:hover {
+        button.primary:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
 
         button.secondary {
             background: #6c757d;
+            color: white;
         }
 
         button.secondary:hover {
@@ -243,100 +364,137 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>📊 Production Planning Tool</h1>
-            <p class="subtitle">Track Capacity & Utilization</p>
-        </header>
-
-        <div class="main-grid">
-            <div class="sidebar">
-                <h2>⚙️ Setup</h2>
-                
-                <h3>Add Production Line</h3>
-                <form id="addLineForm">
-                    <div class="form-group">
-                        <label>Line Name</label>
-                        <input type="text" id="lineName" placeholder="e.g., Line A" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Max Capacity</label>
-                        <input type="number" id="maxCapacity" min="0" step="0.1" value="100" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Unit</label>
-                        <select id="unit">
-                            <option value="gallons">Gallons</option>
-                            <option value="lbs">LBs (Pounds)</option>
-                        </select>
-                    </div>
-                    <button type="submit">Add Line</button>
-                    <div class="success" id="lineSuccess">✓ Line added!</div>
-                </form>
-
-                <div class="divider"></div>
-
-                <h3>Add Production Data</h3>
-                <form id="addDataForm">
-                    <div class="form-group">
-                        <label>Production Line</label>
-                        <select id="selectedLine" required>
-                            <option value="">Select a line...</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Date</label>
-                        <input type="date" id="productionDate" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Actual Production</label>
-                        <input type="number" id="actualProduction" min="0" step="0.1" value="0" required>
-                    </div>
-                    <button type="submit">Add Data</button>
-                    <div class="success" id="dataSuccess">✓ Data added!</div>
-                </form>
-
-                <div class="divider"></div>
-
-                <h3>Production Lines</h3>
-                <div class="lines-list" id="linesList"></div>
-
-                <div class="divider"></div>
-
-                <button class="secondary" onclick="clearAllData()">Clear All Data</button>
+    <!-- Login Page -->
+    <div id="loginPage" class="login-container">
+        <div class="login-box">
+            <h1>📊 Production Planning</h1>
+            <p class="subtitle">Secure Access Required</p>
+            
+            <div class="error-message" id="loginError">
+                Invalid username or password. Please try again.
             </div>
 
-            <div class="dashboard">
-                <div id="emptyState" class="info">
-                    👈 Start by adding a production line in the sidebar
+            <form class="login-form" id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" placeholder="Enter username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="Enter password" required autocomplete="current-password">
+                </div>
+                <button type="submit">Login</button>
+            </form>
+
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0; text-align: center; font-size: 12px; color: #666;">
+                <p>Default credentials:</p>
+                <p><strong>Username:</strong> admin</p>
+                <p><strong>Password:</strong> admin123</p>
+                <p style="margin-top: 10px; color: #999;">Change these in app.js after first login</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application (hidden until login) -->
+    <div id="appContainer" class="app-container">
+        <div class="container">
+            <header>
+                <h1>📊 Production Planning Tool</h1>
+                <div class="header-right">
+                    <span class="user-info">Logged in as: <strong id="currentUser">admin</strong></span>
+                    <button class="logout-btn" onclick="logout()">Logout</button>
+                </div>
+            </header>
+
+            <div class="main-grid">
+                <div class="sidebar">
+                    <h2>⚙️ Setup</h2>
+                    
+                    <h3>Add Production Line</h3>
+                    <form id="addLineForm">
+                        <div class="form-group">
+                            <label>Line Name</label>
+                            <input type="text" id="lineName" placeholder="e.g., Line A" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Max Capacity</label>
+                            <input type="number" id="maxCapacity" min="0" step="0.1" value="100" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Unit</label>
+                            <select id="unit">
+                                <option value="gallons">Gallons</option>
+                                <option value="lbs">LBs (Pounds)</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="primary">Add Line</button>
+                        <div class="success" id="lineSuccess">✓ Line added!</div>
+                    </form>
+
+                    <div class="divider"></div>
+
+                    <h3>Add Production Data</h3>
+                    <form id="addDataForm">
+                        <div class="form-group">
+                            <label>Production Line</label>
+                            <select id="selectedLine" required>
+                                <option value="">Select a line...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Date</label>
+                            <input type="date" id="productionDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Actual Production</label>
+                            <input type="number" id="actualProduction" min="0" step="0.1" value="0" required>
+                        </div>
+                        <button type="submit" class="primary">Add Data</button>
+                        <div class="success" id="dataSuccess">✓ Data added!</div>
+                    </form>
+
+                    <div class="divider"></div>
+
+                    <h3>Production Lines</h3>
+                    <div class="lines-list" id="linesList"></div>
+
+                    <div class="divider"></div>
+
+                    <button class="secondary" onclick="clearAllData()">Clear All Data</button>
                 </div>
 
-                <div id="dashboardContent" style="display: none;">
-                    <h2>📈 Capacity Overview</h2>
-                    
-                    <div class="metrics" id="metrics"></div>
-
-                    <div class="chart-container">
-                        <div id="utilizationChart"></div>
+                <div class="dashboard">
+                    <div id="emptyState" class="info">
+                        👈 Start by adding a production line in the sidebar
                     </div>
 
-                    <div class="chart-container">
-                        <div id="comparisonChart"></div>
-                    </div>
+                    <div id="dashboardContent" style="display: none;">
+                        <h2>📈 Capacity Overview</h2>
+                        
+                        <div class="metrics" id="metrics"></div>
 
-                    <h2>📋 Production Data</h2>
-                    <table id="dataTable">
-                        <thead>
-                            <tr>
-                                <th>Line</th>
-                                <th>Date</th>
-                                <th>Actual</th>
-                                <th>Capacity</th>
-                                <th>Utilization</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dataTableBody"></tbody>
-                    </table>
+                        <div class="chart-container">
+                            <div id="utilizationChart"></div>
+                        </div>
+
+                        <div class="chart-container">
+                            <div id="comparisonChart"></div>
+                        </div>
+
+                        <h2>📋 Production Data</h2>
+                        <table id="dataTable">
+                            <thead>
+                                <tr>
+                                    <th>Line</th>
+                                    <th>Date</th>
+                                    <th>Actual</th>
+                                    <th>Capacity</th>
+                                    <th>Utilization</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dataTableBody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

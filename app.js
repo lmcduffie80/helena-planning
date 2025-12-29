@@ -1,30 +1,177 @@
-// Simple Production Planning Tool
+// Authentication & Security
+// ============================================
+// USER CREDENTIALS - CHANGE THESE AFTER FIRST LOGIN
+// ============================================
+const USERS = {
+    'admin': {
+        password: 'admin123', // Change this password!
+        name: 'Administrator'
+    }
+    // Add more users like this:
+    // 'username': {
+    //     password: 'password',
+    //     name: 'Display Name'
+    // }
+};
+
+// Simple password hashing function (for basic security)
+function hashPassword(password) {
+    let hash = 0;
+    for (let i = 0; i < password.length; i++) {
+        const char = password.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash.toString(36);
+}
+
+// Check if user is authenticated
+function isAuthenticated() {
+    const session = localStorage.getItem('helena_session');
+    if (!session) return false;
+    
+    try {
+        const sessionData = JSON.parse(session);
+        const now = Date.now();
+        // Session expires after 24 hours
+        if (now - sessionData.timestamp > 24 * 60 * 60 * 1000) {
+            localStorage.removeItem('helena_session');
+            return false;
+        }
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+// Get current user
+function getCurrentUser() {
+    const session = localStorage.getItem('helena_session');
+    if (!session) return null;
+    
+    try {
+        const sessionData = JSON.parse(session);
+        return sessionData.username;
+    } catch {
+        return null;
+    }
+}
+
+// Login function
+function login(username, password) {
+    const user = USERS[username];
+    if (!user) {
+        return { success: false, message: 'Invalid username or password' };
+    }
+    
+    // Simple password check (in production, use proper hashing)
+    if (user.password !== password) {
+        return { success: false, message: 'Invalid username or password' };
+    }
+    
+    // Create session
+    const sessionData = {
+        username: username,
+        name: user.name,
+        timestamp: Date.now()
+    };
+    
+    localStorage.setItem('helena_session', JSON.stringify(sessionData));
+    return { success: true, user: user.name };
+}
+
+// Logout function
+function logout() {
+    localStorage.removeItem('helena_session');
+    showLoginPage();
+}
+
+// Show login page
+function showLoginPage() {
+    document.getElementById('loginPage').style.display = 'flex';
+    document.getElementById('appContainer').classList.remove('active');
+    document.getElementById('loginForm').reset();
+    document.getElementById('loginError').style.display = 'none';
+}
+
+// Show app
+function showApp() {
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('appContainer').classList.add('active');
+    const username = getCurrentUser();
+    if (username) {
+        document.getElementById('currentUser').textContent = USERS[username]?.name || username;
+    }
+}
+
+// Production Planning Tool
+// ============================================
 let productionLines = [];
 let productionData = [];
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
-    loadFromStorage();
-    updateUI();
-    setupEventListeners();
-    setDefaultDate();
+    // Check authentication first
+    if (isAuthenticated()) {
+        showApp();
+        loadFromStorage();
+        updateUI();
+        setupEventListeners();
+        setDefaultDate();
+    } else {
+        showLoginPage();
+        setupLoginListener();
+    }
 });
+
+// Setup login form listener
+function setupLoginListener() {
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const errorDiv = document.getElementById('loginError');
+        
+        const result = login(username, password);
+        if (result.success) {
+            showApp();
+            loadFromStorage();
+            updateUI();
+            setupEventListeners();
+            setDefaultDate();
+        } else {
+            errorDiv.textContent = result.message;
+            errorDiv.style.display = 'block';
+            document.getElementById('password').value = '';
+        }
+    });
+}
 
 function setDefaultDate() {
     const today = new Date().toISOString().split('T')[0];
-    document.getElementById('productionDate').value = today;
+    const dateInput = document.getElementById('productionDate');
+    if (dateInput) {
+        dateInput.value = today;
+    }
 }
 
 function setupEventListeners() {
-    document.getElementById('addLineForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        addProductionLine();
-    });
+    const addLineForm = document.getElementById('addLineForm');
+    const addDataForm = document.getElementById('addDataForm');
+    
+    if (addLineForm) {
+        addLineForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            addProductionLine();
+        });
+    }
 
-    document.getElementById('addDataForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        addProductionData();
-    });
+    if (addDataForm) {
+        addDataForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            addProductionData();
+        });
+    }
 }
 
 function addProductionLine() {
@@ -105,14 +252,19 @@ function updateUI() {
     updateLinesDropdown();
     updateLinesList();
     
+    const emptyState = document.getElementById('emptyState');
+    const dashboardContent = document.getElementById('dashboardContent');
+    
+    if (!emptyState || !dashboardContent) return;
+    
     if (productionLines.length === 0) {
-        document.getElementById('emptyState').style.display = 'block';
-        document.getElementById('dashboardContent').style.display = 'none';
+        emptyState.style.display = 'block';
+        dashboardContent.style.display = 'none';
         return;
     }
 
-    document.getElementById('emptyState').style.display = 'none';
-    document.getElementById('dashboardContent').style.display = 'block';
+    emptyState.style.display = 'none';
+    dashboardContent.style.display = 'block';
 
     updateMetrics();
     updateCharts();
@@ -121,6 +273,8 @@ function updateUI() {
 
 function updateLinesDropdown() {
     const select = document.getElementById('selectedLine');
+    if (!select) return;
+    
     select.innerHTML = '<option value="">Select a line...</option>';
     productionLines.forEach(line => {
         const option = document.createElement('option');
@@ -132,6 +286,8 @@ function updateLinesDropdown() {
 
 function updateLinesList() {
     const container = document.getElementById('linesList');
+    if (!container) return;
+    
     container.innerHTML = '';
     
     if (productionLines.length === 0) {
@@ -166,6 +322,7 @@ function removeLine(id) {
 function updateMetrics() {
     const data = getCapacityData();
     const container = document.getElementById('metrics');
+    if (!container) return;
     
     if (data.length === 0) {
         container.innerHTML = '';
@@ -194,10 +351,14 @@ function updateMetrics() {
 
 function updateCharts() {
     const data = getCapacityData();
+    const utilizationChart = document.getElementById('utilizationChart');
+    const comparisonChart = document.getElementById('comparisonChart');
+    
+    if (!utilizationChart || !comparisonChart) return;
     
     if (data.length === 0) {
-        document.getElementById('utilizationChart').innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">Add production data to see charts</p>';
-        document.getElementById('comparisonChart').innerHTML = '';
+        utilizationChart.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">Add production data to see charts</p>';
+        comparisonChart.innerHTML = '';
         return;
     }
 
@@ -329,6 +490,8 @@ function createComparisonChart(data) {
 function updateDataTable() {
     const data = getCapacityData();
     const tbody = document.getElementById('dataTableBody');
+    if (!tbody) return;
+    
     tbody.innerHTML = '';
     
     data.forEach(d => {
@@ -355,21 +518,29 @@ function clearAllData() {
 
 function showSuccess(id) {
     const el = document.getElementById(id);
-    el.style.display = 'block';
-    setTimeout(() => {
-        el.style.display = 'none';
-    }, 3000);
+    if (el) {
+        el.style.display = 'block';
+        setTimeout(() => {
+            el.style.display = 'none';
+        }, 3000);
+    }
 }
 
-// Storage functions
+// Storage functions (scoped to authenticated user)
 function saveToStorage() {
-    localStorage.setItem('helena_production_lines', JSON.stringify(productionLines));
-    localStorage.setItem('helena_production_data', JSON.stringify(productionData));
+    const username = getCurrentUser();
+    if (!username) return;
+    
+    localStorage.setItem(`helena_production_lines_${username}`, JSON.stringify(productionLines));
+    localStorage.setItem(`helena_production_data_${username}`, JSON.stringify(productionData));
 }
 
 function loadFromStorage() {
-    const lines = localStorage.getItem('helena_production_lines');
-    const data = localStorage.getItem('helena_production_data');
+    const username = getCurrentUser();
+    if (!username) return;
+    
+    const lines = localStorage.getItem(`helena_production_lines_${username}`);
+    const data = localStorage.getItem(`helena_production_data_${username}`);
     
     if (lines) {
         productionLines = JSON.parse(lines);
