@@ -1,4 +1,4 @@
-// Production Planning App - JavaScript
+// Simple Production Planning Tool
 let productionLines = [];
 let productionData = [];
 
@@ -47,6 +47,7 @@ function addProductionLine() {
     
     document.getElementById('addLineForm').reset();
     document.getElementById('maxCapacity').value = 100;
+    document.getElementById('unit').value = 'gallons';
     showSuccess('lineSuccess');
 }
 
@@ -113,7 +114,6 @@ function updateUI() {
     document.getElementById('emptyState').style.display = 'none';
     document.getElementById('dashboardContent').style.display = 'block';
 
-    updateLinesTable();
     updateMetrics();
     updateCharts();
     updateDataTable();
@@ -125,7 +125,7 @@ function updateLinesDropdown() {
     productionLines.forEach(line => {
         const option = document.createElement('option');
         option.value = line.id;
-        option.textContent = line.name;
+        option.textContent = `${line.name} (${line.maxCapacity} ${line.unit})`;
         select.appendChild(option);
     });
 }
@@ -135,7 +135,7 @@ function updateLinesList() {
     container.innerHTML = '';
     
     if (productionLines.length === 0) {
-        container.innerHTML = '<p style="color: #666; font-size: 14px;">No production lines added</p>';
+        container.innerHTML = '<p style="color: #666; font-size: 14px;">No lines added</p>';
         return;
     }
 
@@ -156,23 +156,11 @@ function updateLinesList() {
 function removeLine(id) {
     productionLines = productionLines.filter(l => l.id !== id);
     productionData = productionData.filter(d => d.line_id !== id);
-    // Reassign IDs
     productionLines.forEach((line, index) => {
         line.id = index;
     });
     saveToStorage();
     updateUI();
-}
-
-function updateLinesTable() {
-    const tbody = document.getElementById('linesTableBody');
-    tbody.innerHTML = '';
-    productionLines.forEach(line => {
-        const row = tbody.insertRow();
-        row.insertCell(0).textContent = line.name;
-        row.insertCell(1).textContent = line.maxCapacity;
-        row.insertCell(2).textContent = line.unit;
-    });
 }
 
 function updateMetrics() {
@@ -187,7 +175,6 @@ function updateMetrics() {
     const avgUtilization = data.reduce((sum, d) => sum + d.Utilization, 0) / data.length;
     const maxUtilization = Math.max(...data.map(d => d.Utilization));
     const totalLines = new Set(data.map(d => d.Line)).size;
-    const totalDataPoints = data.length;
 
     container.innerHTML = `
         <div class="metric">
@@ -202,10 +189,6 @@ function updateMetrics() {
             <div class="metric-value">${totalLines}</div>
             <div class="metric-label">Active Lines</div>
         </div>
-        <div class="metric">
-            <div class="metric-value">${totalDataPoints}</div>
-            <div class="metric-label">Data Points</div>
-        </div>
     `;
 }
 
@@ -213,15 +196,13 @@ function updateCharts() {
     const data = getCapacityData();
     
     if (data.length === 0) {
-        document.getElementById('utilizationChart').innerHTML = '<p>Add production data to see charts</p>';
+        document.getElementById('utilizationChart').innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">Add production data to see charts</p>';
         document.getElementById('comparisonChart').innerHTML = '';
-        document.getElementById('timelineChart').innerHTML = '';
         return;
     }
 
     createUtilizationChart(data);
     createComparisonChart(data);
-    createTimelineChart(data);
 }
 
 function createUtilizationChart(data) {
@@ -234,7 +215,8 @@ function createUtilizationChart(data) {
                 y: [],
                 type: 'scatter',
                 mode: 'lines+markers',
-                name: d.Line
+                name: d.Line,
+                line: { width: 3 }
             };
         }
         traces[d.Line].x.push(d.Date);
@@ -244,11 +226,16 @@ function createUtilizationChart(data) {
     const plotData = Object.values(traces);
 
     const layout = {
-        title: 'Production Line Capacity Utilization Over Time',
+        title: {
+            text: 'Capacity Utilization Over Time',
+            font: { size: 20, color: '#667eea' }
+        },
         xaxis: { title: 'Date' },
-        yaxis: { title: 'Capacity Utilization (%)' },
-        height: 500,
+        yaxis: { title: 'Utilization (%)' },
+        height: 400,
         hovermode: 'x unified',
+        plot_bgcolor: 'white',
+        paper_bgcolor: 'white',
         shapes: [
             {
                 type: 'line',
@@ -279,25 +266,17 @@ function createUtilizationChart(data) {
                 yref: 'y',
                 text: '100% Capacity',
                 showarrow: false,
-                xanchor: 'right'
-            },
-            {
-                x: 1,
-                y: 80,
-                xref: 'paper',
-                yref: 'y',
-                text: '80% Warning',
-                showarrow: false,
-                xanchor: 'right'
+                xanchor: 'right',
+                bgcolor: 'rgba(255,0,0,0.1)',
+                bordercolor: 'red'
             }
         ]
     };
 
-    Plotly.newPlot('utilizationChart', plotData, layout);
+    Plotly.newPlot('utilizationChart', plotData, layout, {responsive: true});
 }
 
 function createComparisonChart(data) {
-    // Get latest data for each line
     const latest = {};
     data.forEach(d => {
         if (!latest[d.Line] || new Date(d.Date) > new Date(latest[d.Line].Date)) {
@@ -314,9 +293,9 @@ function createComparisonChart(data) {
         type: 'bar',
         marker: {
             color: utilizations.map(u => {
-                if (u < 80) return 'green';
-                if (u < 100) return 'orange';
-                return 'red';
+                if (u < 80) return '#28a745';
+                if (u < 100) return '#ffc107';
+                return '#dc3545';
             })
         },
         text: utilizations.map(u => u.toFixed(1) + '%'),
@@ -324,10 +303,15 @@ function createComparisonChart(data) {
     };
 
     const layout = {
-        title: 'Current Capacity Utilization by Production Line',
+        title: {
+            text: 'Current Utilization by Line',
+            font: { size: 20, color: '#667eea' }
+        },
         xaxis: { title: 'Production Line' },
-        yaxis: { title: 'Capacity Utilization (%)' },
+        yaxis: { title: 'Utilization (%)' },
         height: 400,
+        plot_bgcolor: 'white',
+        paper_bgcolor: 'white',
         shapes: [{
             type: 'line',
             x0: -0.5,
@@ -339,38 +323,7 @@ function createComparisonChart(data) {
         }]
     };
 
-    Plotly.newPlot('comparisonChart', [trace], layout);
-}
-
-function createTimelineChart(data) {
-    const traces = {};
-    
-    data.forEach(d => {
-        if (!traces[d.Line]) {
-            traces[d.Line] = {
-                x: [],
-                y: [],
-                type: 'scatter',
-                mode: 'lines',
-                fill: 'tozeroy',
-                name: d.Line
-            };
-        }
-        traces[d.Line].x.push(d.Date);
-        traces[d.Line].y.push(d.ActualProduction);
-    });
-
-    const plotData = Object.values(traces);
-
-    const layout = {
-        title: 'Production Output Over Time',
-        xaxis: { title: 'Date' },
-        yaxis: { title: `Production (${data[0]?.Unit || 'units'})` },
-        height: 400,
-        hovermode: 'x unified'
-    };
-
-    Plotly.newPlot('timelineChart', plotData, layout);
+    Plotly.newPlot('comparisonChart', [trace], layout, {responsive: true});
 }
 
 function updateDataTable() {
@@ -382,14 +335,17 @@ function updateDataTable() {
         const row = tbody.insertRow();
         row.insertCell(0).textContent = d.Line;
         row.insertCell(1).textContent = d.Date;
-        row.insertCell(2).textContent = d.ActualProduction.toFixed(2);
-        row.insertCell(3).textContent = d.MaxCapacity.toFixed(2);
-        row.insertCell(4).textContent = d.Utilization.toFixed(1) + '%';
+        row.insertCell(2).textContent = d.ActualProduction.toFixed(1) + ' ' + d.Unit;
+        row.insertCell(3).textContent = d.MaxCapacity.toFixed(1) + ' ' + d.Unit;
+        const utilCell = row.insertCell(4);
+        utilCell.textContent = d.Utilization.toFixed(1) + '%';
+        utilCell.style.fontWeight = '600';
+        utilCell.style.color = d.Utilization >= 100 ? '#dc3545' : d.Utilization >= 80 ? '#ffc107' : '#28a745';
     });
 }
 
 function clearAllData() {
-    if (confirm('Are you sure you want to clear all data? This cannot be undone.')) {
+    if (confirm('Clear all production lines and data? This cannot be undone.')) {
         productionLines = [];
         productionData = [];
         saveToStorage();
@@ -422,4 +378,3 @@ function loadFromStorage() {
         productionData = JSON.parse(data);
     }
 }
-
