@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Helena Production Planning Tool</title>
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #1f77b4;
+            margin-bottom: 10px;
+        }
+
+        .sidebar {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button {
+            background: #1f77b4;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: #1565a0;
+        }
+
+        button.secondary {
+            background: #6c757d;
+        }
+
+        button.secondary:hover {
+            background: #5a6268;
+        }
+
+        .divider {
+            height: 1px;
+            background: #ddd;
+            margin: 20px 0;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+        }
+
+        .dashboard {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .metric {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #1f77b4;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+
+        .info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #1f77b4;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .lines-list {
+            margin-top: 15px;
+        }
+
+        .line-item {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .line-item button {
+            width: auto;
+            padding: 5px 10px;
+            font-size: 12px;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Helena Production Planning Tool</h1>
+            <p>Review Line Capacity and Monitor Utilization</p>
+        </header>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <h2>⚙️ Configuration</h2>
+                
+                <h3>Add Production Line</h3>
+                <form id="addLineForm">
+                    <div class="form-group">
+                        <label>Line Name</label>
+                        <input type="text" id="lineName" placeholder="e.g., Line A" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Max Capacity</label>
+                        <input type="number" id="maxCapacity" min="0" step="10" value="100" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Unit</label>
+                        <select id="unit">
+                            <option>units/hour</option>
+                            <option>units/day</option>
+                            <option>units/week</option>
+                            <option>units/month</option>
+                            <option>units</option>
+                        </select>
+                    </div>
+                    <button type="submit">Add Production Line</button>
+                    <div class="success" id="lineSuccess">Line added successfully!</div>
+                </form>
+
+                <div class="divider"></div>
+
+                <h3>Add Production Data</h3>
+                <form id="addDataForm">
+                    <div class="form-group">
+                        <label>Production Line</label>
+                        <select id="selectedLine" required>
+                            <option value="">Select a line...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Production Date</label>
+                        <input type="date" id="productionDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Actual Production</label>
+                        <input type="number" id="actualProduction" min="0" step="1" value="0" required>
+                    </div>
+                    <button type="submit">Add Production Data</button>
+                    <div class="success" id="dataSuccess">Data added successfully!</div>
+                </form>
+
+                <div class="divider"></div>
+
+                <h3>Production Lines</h3>
+                <div class="lines-list" id="linesList"></div>
+
+                <div class="divider"></div>
+
+                <button class="secondary" onclick="clearAllData()">Clear All Data</button>
+            </div>
+
+            <div class="dashboard">
+                <div id="emptyState" class="info">
+                    👈 Start by adding a production line in the sidebar
+                </div>
+
+                <div id="dashboardContent" style="display: none;">
+                    <h2>Production Lines Overview</h2>
+                    <table id="linesTable">
+                        <thead>
+                            <tr>
+                                <th>Line Name</th>
+                                <th>Max Capacity</th>
+                                <th>Unit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="linesTableBody"></tbody>
+                    </table>
+
+                    <div class="metrics" id="metrics"></div>
+
+                    <div class="chart-container">
+                        <div id="utilizationChart"></div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="chart-container">
+                            <div id="comparisonChart"></div>
+                        </div>
+                        <div class="chart-container">
+                            <div id="timelineChart"></div>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <h3>📋 Detailed Production Data</h3>
+                        <table id="dataTable">
+                            <thead>
+                                <tr>
+                                    <th>Line</th>
+                                    <th>Date</th>
+                                    <th>Actual Production</th>
+                                    <th>Max Capacity</th>
+                                    <th>Utilization %</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dataTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
